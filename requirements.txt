@@ -1,0 +1,13 @@
+notebook
+yfinance
+pandas
+boto3
+numpy
+matplotlib
+seaborn
+scikit-learn
+crewai
+crewai-tools
+langchain
+openai
+python-dotenv
