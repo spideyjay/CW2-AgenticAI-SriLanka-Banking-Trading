@@ -4,29 +4,49 @@ Uses CrewAI to analyze stock data and provide trading recommendations
 """
 
 import os
+import pandas as pd
 from dotenv import load_dotenv
 from crewai import Agent, Task, Crew
-from crewai_tools import FileReadTool
-from langchain_openai import ChatOpenAI
-import pandas as pd
+from langchain_google_genai import ChatGoogleGenerativeAI
+from crewai.tools import tool
 
 # Load environment variables
 load_dotenv()
-openai_api_key = os.getenv('OPENAI_API_KEY')
+gemini_api_key = os.getenv('GEMINI_API_KEY')
 
-if not openai_api_key:
-    raise ValueError("Please set OPENAI_API_KEY in .env file")
+if not gemini_api_key:
+    raise ValueError("Please set GEMINI_API_KEY in .env file")
 
-# Initialize LLM
-llm = ChatOpenAI(
-    model="gpt-4o",
-    temperature=0.1,
-    api_key=openai_api_key
+# Initialize Gemini LLM
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash", 
+    api_key=gemini_api_key,
+    temperature=0.1
 )
 
+# --- CUSTOM TOOL TO PREVENT API RATE LIMITS ---
+@tool("Read Recent Stock Data")
+def get_recent_stock_data(ticker: str) -> str:
+    """Reads the local CSV file and returns ONLY the last 30 days of technical data for a specific ticker."""
+    try:
+        # Read the file
+        df = pd.read_csv('data/banking_processed.csv', header=[0, 1], index_col=0)
+        df.index = pd.to_datetime(df.index)
+        
+        # Check if ticker exists
+        if ticker not in df.columns.levels[0]:
+            return f"Error: Ticker {ticker} not found in dataset."
+            
+        # Extract just that ticker's data and get the last 30 rows
+        ticker_data = df[ticker].tail(30)
+        
+        # Return a small, focused string
+        return ticker_data.to_csv()
+    except Exception as e:
+        return f"Error reading data: {str(e)}"
+
 class BankingTradingAgent:
-    def __init__(self, data_path='../data/banking_processed.csv'):
-        self.data_path = data_path
+    def __init__(self):
         self.agents = {}
         self.tasks = {}
         self.crew = None
@@ -35,160 +55,113 @@ class BankingTradingAgent:
     def _setup_agents(self):
         """Set up the AI agents for trading analysis"""
 
-        # Data Analyst Agent
         self.agents['data_analyst'] = Agent(
             role='Senior Data Analyst',
-            goal='Analyze stock market data and identify patterns and trends',
+            goal='Analyze recent stock market data and identify patterns and trends',
             backstory="""You are a senior data analyst specializing in financial markets.
-            You have 15+ years of experience analyzing stock data, technical indicators,
-            and market trends. You excel at identifying patterns that could indicate
-            trading opportunities.""",
+            You excel at looking at the last 30 days of trading data and identifying immediate 
+            patterns that could indicate trading opportunities.""",
             llm=llm,
-            tools=[FileReadTool(file_path=self.data_path)],
+            tools=[get_recent_stock_data], # Uses our custom tool!
             verbose=True
         )
 
-        # Technical Analyst Agent
         self.agents['technical_analyst'] = Agent(
             role='Technical Analysis Expert',
             goal='Provide technical analysis and trading signals based on indicators',
             backstory="""You are a certified technical analyst with deep expertise in
-            technical indicators like RSI, MACD, moving averages, and Bollinger Bands.
-            You can identify support/resistance levels, trend patterns, and generate
-            actionable trading signals.""",
+            technical indicators like RSI, MACD, moving averages, and Bollinger Bands.""",
             llm=llm,
-            tools=[FileReadTool(file_path=self.data_path)],
             verbose=True
         )
 
-        # Risk Manager Agent
         self.agents['risk_manager'] = Agent(
             role='Risk Management Specialist',
             goal='Assess and manage trading risks, portfolio diversification',
             backstory="""You are a risk management expert who ensures trading strategies
-            are safe and sustainable. You analyze volatility, drawdown risks, and
-            recommend position sizing and stop-loss levels.""",
+            are safe and sustainable. You analyze volatility and recommend stop-loss levels.""",
             llm=llm,
-            tools=[FileReadTool(file_path=self.data_path)],
             verbose=True
         )
 
-        # Trading Strategist Agent
         self.agents['trading_strategist'] = Agent(
             role='Trading Strategy Developer',
             goal='Develop comprehensive trading strategies based on analysis',
             backstory="""You are a trading strategist who combines technical analysis,
-            risk management, and market insights to create profitable trading strategies.
-            You consider market conditions, risk tolerance, and investment goals.""",
+            risk management, and market insights to create profitable trading strategies.""",
             llm=llm,
-            tools=[FileReadTool(file_path=self.data_path)],
             verbose=True
         )
 
-    def create_analysis_tasks(self, ticker, analysis_period="3 months"):
+    def create_analysis_tasks(self, ticker, cluster_label="Unknown"):
         """Create tasks for analyzing a specific stock"""
 
-        # Task 1: Data Analysis
         self.tasks['data_analysis'] = Task(
-            description=f"""Analyze the processed data for {ticker} over the last {analysis_period}.
-            Load the data from {self.data_path} and provide:
-            - Price trends and volatility analysis
-            - Key statistics (returns, volatility, correlations)
-            - Any notable patterns or anomalies
-            Focus on the most recent data and identify any significant changes.""",
+            description=f"""Use the 'Read Recent Stock Data' tool to fetch the last 30 days of data for {ticker}.
+            NOTE: A separate K-Means machine learning model has categorized this bank into Risk Cluster: {cluster_label}.
+            Analyze the fetched data and provide:
+            - Price trends over the last month
+            - Notable anomalies
+            - Current momentum direction""",
             agent=self.agents['data_analyst'],
-            expected_output="Comprehensive data analysis report with key insights and trends."
+            expected_output="A summary of the recent 30-day price trends and momentum."
         )
 
-        # Task 2: Technical Analysis
         self.tasks['technical_analysis'] = Task(
-            description=f"""Perform technical analysis on {ticker} using indicators like:
-            - RSI (overbought/oversold conditions)
-            - MACD (momentum and trend signals)
-            - Moving averages (SMA 20/50, EMA 12/26)
-            - Bollinger Bands (volatility and price levels)
-            Provide buy/sell/hold signals based on technical indicators.""",
+            description=f"""Review the data analysis for {ticker}. Provide buy/sell/hold signals based on 
+            the technical indicators present in the recent data (RSI, MACD, etc).""",
             agent=self.agents['technical_analyst'],
-            expected_output="Technical analysis report with clear trading signals and price targets."
+            context=[self.tasks['data_analysis']],
+            expected_output="Technical analysis report with clear trading signals."
         )
 
-        # Task 3: Risk Assessment
         self.tasks['risk_assessment'] = Task(
-            description=f"""Assess the risk profile for {ticker}:
-            - Calculate Value at Risk (VaR)
-            - Analyze maximum drawdown
-            - Evaluate volatility metrics
-            - Recommend position sizing and stop-loss levels
-            - Suggest risk mitigation strategies""",
+            description=f"""Assess the risk profile for {ticker} based on its Risk Cluster ({cluster_label}) 
+            and recent volatility. Recommend specific stop-loss levels.""",
             agent=self.agents['risk_manager'],
-            expected_output="Risk assessment report with quantitative risk metrics and mitigation recommendations."
+            context=[self.tasks['data_analysis']],
+            expected_output="Risk assessment with specific stop-loss recommendations."
         )
 
-        # Task 4: Trading Strategy
         self.tasks['strategy_development'] = Task(
-            description=f"""Develop a comprehensive trading strategy for {ticker} by combining:
-            - Data analysis insights
-            - Technical analysis signals
-            - Risk management recommendations
-            Create an actionable trading plan with:
-            - Entry/exit criteria
-            - Position sizing
-            - Risk management rules
-            - Performance expectations""",
+            description=f"""Develop a final trading decision for {ticker} by synthesizing all previous analysis.
+            You MUST output your final recommendation in the exact following structure:
+            
+            FINAL_DECISION: [BUY, SELL, or HOLD]
+            CONFIDENCE_SCORE: [1-10]
+            TARGET_PRICE: [Numeric value]
+            STOP_LOSS: [Numeric value]
+            RATIONALE: [One paragraph summary of why this decision was made]
+            """,
             agent=self.agents['trading_strategist'],
             context=[self.tasks['data_analysis'], self.tasks['technical_analysis'], self.tasks['risk_assessment']],
-            expected_output="Complete trading strategy with actionable recommendations."
+            expected_output="A structured final decision containing exactly: FINAL_DECISION, CONFIDENCE_SCORE, TARGET_PRICE, STOP_LOSS, and RATIONALE."
         )
 
-    def run_analysis(self, ticker, analysis_period="3 months"):
+    def run_analysis(self, ticker, cluster_label="Unknown"):
         """Run the complete analysis for a ticker"""
-        print(f"Starting analysis for {ticker}...")
+        print(f"\nStarting analysis for {ticker} (Risk Cluster: {cluster_label})...")
 
-        # Create tasks
-        self.create_analysis_tasks(ticker, analysis_period)
+        self.create_analysis_tasks(ticker, cluster_label)
 
-        # Create and run crew
         self.crew = Crew(
             agents=list(self.agents.values()),
             tasks=list(self.tasks.values()),
             verbose=True
         )
 
-        # Execute the analysis
         result = self.crew.kickoff()
-
         return result
 
-    def analyze_portfolio(self, tickers, analysis_period="3 months"):
-        """Analyze multiple stocks for portfolio construction"""
-        portfolio_analysis = {}
-
-        for ticker in tickers:
-            try:
-                analysis = self.run_analysis(ticker, analysis_period)
-                portfolio_analysis[ticker] = analysis
-                print(f"Completed analysis for {ticker}")
-            except Exception as e:
-                print(f"Error analyzing {ticker}: {e}")
-                portfolio_analysis[ticker] = f"Analysis failed: {e}"
-
-        return portfolio_analysis
-
 def main():
-    """Main function to run the trading agent"""
-    # Initialize agent
     agent = BankingTradingAgent()
-
-    # Sri Lankan banking tickers
-    tickers = ['COMB.N0000.LK', 'HNB.N0000.LK', 'NDB.N0000.LK']
-
-    # Run analysis for one ticker first
-    ticker = tickers[0]
-    print(f"Analyzing {ticker}...")
-
-    result = agent.run_analysis(ticker)
+    ticker = 'COMB.N0000.LK'
+    
+    # We pass the cluster label derived from our earlier K-Means analysis
+    result = agent.run_analysis(ticker, cluster_label="Cluster 2 (Low Volatility, Positive Return)")
+    
     print("\n" + "="*50)
-    print("TRADING ANALYSIS RESULTS")
+    print("FINAL TRADING ANALYSIS RESULTS")
     print("="*50)
     print(result)
 

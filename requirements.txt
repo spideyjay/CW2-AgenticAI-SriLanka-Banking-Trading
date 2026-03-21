@@ -11,5 +11,6 @@ crewai-tools
 langchain
 openai
 python-dotenv
-requests>=2.28.0
-tenacity>=8.0.0
+requests
+tenacity
+boto3 sqlalchemy psycopg2-binary
