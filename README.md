@@ -1,121 +1,118 @@
 # CW2-AgenticAI-SriLanka-Banking-Trading
 
-An agentic AI system for analyzing and trading Sri Lankan banking stocks using CrewAI and advanced data analysis.
+An enterprise-grade Agentic AI system designed for analyzing and trading Sri Lankan banking stocks. This project leverages CrewAI, unsupervised machine learning (K-Means), and the Gemini 2.5 Flash Large Language Model to simulate an autonomous institutional trading desk.
 
 ## Project Structure
 
-```
-├── data/                    # Raw and processed financial data
-├── notebooks/              # Jupyter notebooks for analysis
-│   ├── 01_data_collection.ipynb     # Data fetching and initial processing
-│   └── 02_data_preprocessing.ipynb  # Technical indicators and cleaning
-├── agents/                 # AI agents for trading analysis
-│   └── trading_agent.py    # CrewAI-based trading analysis system
-├── cloud/                  # Cloud deployment scripts (AWS)
-├── docs/                   # Documentation
-├── requirements.txt        # Python dependencies
-├── .env                    # Environment variables (API keys)
-└── README.md              # This file
-```
+├── data/                    # Raw and processed financial data (S3 connected)
+├── notebooks/               # Jupyter notebooks for data engineering & ML
+│   ├── 01_data_collection.ipynb     # CSE data fetching and AWS S3 upload
+│   └── 02_data_preprocessing.ipynb  # Technical indicators & K-Means Clustering
+├── agents/                  # AI agents for trading analysis
+│   └── trading_agent.py     # CrewAI Multi-Agent decision engine
+├── backtester.py            # Historical simulation & performance evaluation
+├── requirements.txt         # Python dependencies
+├── .env.example             # Template for Environment variables
+└── README.md                # Project documentation
+
 
 ## Features
+-Automated Data Engineering: Extraction and preprocessing of historical OHLCV data for CSE banking stocks, complete with cloud storage integration (AWS S3).
 
-- **Data Collection**: Automated fetching of OHLCV data for Sri Lankan banking stocks
-- **Technical Analysis**: RSI, MACD, Moving Averages, Bollinger Bands
-- **AI-Powered Analysis**: CrewAI agents for comprehensive market analysis
-- **Risk Management**: Automated risk assessment and position sizing
-- **Cloud Deployment**: AWS integration for scalable deployment
+-Quantitative Segmentation: Unsupervised machine learning (K-Means Clustering) to categorize assets by their historical risk-return profiles.
+
+-Agentic AI Workflow: A 4-agent CrewAI system (Data Analyst, Technical Analyst, Risk Manager, Trading Strategist) that collaboratively analyzes market conditions and strict risk parameters.
+
+-Custom Tooling: Custom Python tools designed to chunk large CSV datasets, effectively bypassing LLM token limits and API rate exhaustion.
+
+-Historical Backtesting: A time-series simulation engine to evaluate the AI's capital preservation and trading logic against historical data.
 
 ## Setup
 
 1. **Clone and navigate to project**:
-   ```bash
-   cd "C:\Projects\CW2-AgenticAI-SriLanka-Banking-Trading"
-   ```
+
+git clone [https://github.com/spideyjay/CW2-AgenticAI-SriLanka-Banking-Trading.git](https://github.com/spideyjay/CW2-AgenticAI-SriLanka-Banking-Trading.git)
+cd CW2-AgenticAI-SriLanka-Banking-Trading
+
 
 2. **Create virtual environment**:
-   ```bash
-   python -m venv venv
-   .\venv\Scripts\activate
-   ```
+
+# Windows
+python -m venv venv
+.\venv\Scripts\activate
+
+# Mac/Linux
+python3 -m venv venv
+source venv/bin/activate
+
 
 3. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+pip install -r requirements.txt
+
 
 4. **Configure environment**:
-   - Copy `.env` and add your OpenAI API key
-   - For AWS deployment, add AWS credentials
+Rename .env.example to .env
+Add your Google Gemini API Key (GEMINI_API_KEY=your_key_here)
+Add your AWS Access Keys for cloud storage integration.
 
 ## Usage
 
-### Data Analysis Pipeline
+### Phase 1 & 2: Data Pipeline & Machine Learning
+1. **Run Data Collection & Preprocessing:**:
 
-1. **Run data collection**:
-   ```bash
-   jupyter notebook notebooks/01_data_collection.ipynb
-   ```
-   - Fetches banking stock data
-   - Handles API failures with sample data generation
+-Open and execute the Jupyter notebooks in order to fetch data, calculate technical indicators (MACD, RSI, SMA), and generate the K-Means risk clusters.
 
-2. **Run preprocessing**:
-   ```bash
-   jupyter notebook notebooks/02_data_preprocessing.ipynb
-   ```
-   - Adds technical indicators
-   - Generates visualizations
-   - Saves processed data
+jupyter notebook notebooks/01_data_collection.ipynb
+jupyter notebook notebooks/02_data_preprocessing.ipynb
 
-### AI Trading Analysis
 
-Run the agentic analysis:
-```bash
-cd agents
-python trading_agent.py
-```
+### Phase 3: AI Trading Analysis
 
-This will:
-- Analyze stock data using multiple AI agents
-- Provide technical analysis and trading signals
-- Assess risks and recommend strategies
+-Run the Multi-Agent system to get a real-time analysis of a specific asset based on the most recent 30 days of data:
 
-## Sri Lankan Banking Stocks
+python agents/trading_agent.py
 
-- COMB.N0000.LK - Commercial Bank of Ceylon
-- HNB.N0000.LK - Hatton National Bank
-- NDB.N0000.LK - National Development Bank
-- BFLN.N0000.LK - Bank of Ceylon (BofC)
-- DFCC.N0000.LK - DFCC Bank
-- SAMP.N0000.LK - Sampath Bank
 
-## Technologies Used
+### Phase 4: Backtesting Evaluation
 
-- **Python**: Core programming language
-- **Pandas/NumPy**: Data manipulation and analysis
-- **yfinance**: Financial data fetching
-- **Matplotlib/Seaborn**: Data visualization
-- **CrewAI**: Multi-agent AI framework
-- **LangChain**: LLM integration
-- **OpenAI GPT-4**: AI analysis engine
-- **AWS Boto3**: Cloud services integration
+-Run the historical simulation to test the AI's trading logic and capital preservation strategy over time:
 
-## Next Steps
+python backtester.py
 
-1. **Data Validation**: Replace sample data with real CSE data
-2. **Model Training**: Implement ML models for price prediction
-3. **Backtesting**: Create backtesting framework for strategies
-4. **Live Trading**: Integrate with brokerage APIs
-5. **Cloud Scaling**: Deploy agents on AWS Lambda/EC2
 
-## Contributing
+## Target Assets (Sri Lankan Banking Sector)
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+COMB.N0000.LK - Commercial Bank of Ceylon
+
+HNB.N0000.LK - Hatton National Bank
+
+NDB.N0000.LK - National Development Bank
+
+BFLN.N0000.LK - Bank of Ceylon (BOC)
+
+DFCC.N0000.LK - DFCC Bank
+
+SAMP.N0000.LK - Sampath Bank
+
+
+## Technologies Stack
+
+-AI / LLM: CrewAI framework, Google Gemini 2.5 Flash, LangChain
+
+-Machine Learning: Scikit-learn (K-Means Clustering)
+
+-Data Engineering: Pandas, NumPy, yfinance
+
+-Cloud Infrastructure: AWS S3 (Boto3)
+
+-Visualization: Matplotlib, Seaborn
+
+## Future Enhancements
+- Core Banking Integration: Connect the AI Decision Engine directly to core banking system ledgers to verify institutional liquidity before simulated execution.
+
+- Multi-Modal Sentiment Analysis: Upgrade the Data Analyst agent with NLP to ingest real-time CBSL policy announcements and financial news.
+
+- Dynamic ML Recalibration: Automate the ML pipeline to dynamically update K-Means risk clusters based on shifting macroeconomic regimes.
 
 ## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
+-This project is licensed under the MIT License - see the LICENSE file for details.
